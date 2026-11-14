@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QueueSmart Display Board</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,sans-serif;background:#0f172a;color:#fff;padding:24px}
+h1{margin:0 0 20px;font-size:32px}
+.grid{display:grid;grid-template-columns:2fr 1fr;gap:24px}
+.counters{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+.c{background:#1e293b;border-radius:14px;padding:20px;text-align:center}
+.c.closed{opacity:.35}
+.c .n{font-size:20px;color:#94a3b8}
+.c .t{font-size:64px;font-weight:800;color:#34d399;margin:10px 0}
+.next{background:#1e293b;border-radius:14px;padding:20px}
+.next div{font-size:28px;padding:8px 0;border-bottom:1px solid #334155;display:flex;justify-content:space-between}
+.p{color:#fbbf24}
+.foot{margin-top:20px;font-size:22px;color:#94a3b8}
+</style>
+</head>
+<body>
+<h1>Now Serving</h1>
+<div class="grid">
+  <div class="counters" id="counters"></div>
+  <div class="next"><h2>Next in line</h2><div id="next"></div></div>
+</div>
+<div class="foot" id="foot"></div>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+io().on('queue:update', (s) => {
+  document.getElementById('counters').innerHTML = s.counters.map(c => `
+    <div class="c ${c.status}"><div class="n">${c.name}</div><div class="t">${c.serving || '-'}</div><div class="n">${c.status}</div></div>`).join('');
+  document.getElementById('next').innerHTML = s.waiting.slice(0, 6).map(t => `
+    <div><span class="${t.priority ? 'p' : ''}">${t.number}</span><span>${t.etaMin} min</span></div>`).join('') || '<div>No one waiting</div>';
+  document.getElementById('foot').textContent = `Waiting: ${s.waiting.length}   |   Open counters: ${s.openCounters}   |   Avg service: ${s.avgServiceMin} min`;
+});
+</script>
+</body>
+</html>

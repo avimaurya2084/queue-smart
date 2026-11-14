@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QueueSmart</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,sans-serif;background:#f3f5f9;color:#1c2333}
+header{background:#1f3a8a;color:#fff;padding:14px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+header h1{margin:0;font-size:20px}
+header a{color:#bfdbfe;margin-right:14px;font-size:14px}
+main{max-width:1100px;margin:20px auto;padding:0 16px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.card{background:#fff;border-radius:10px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.full{grid-column:1/-1}
+h2{margin:0 0 12px;font-size:16px}
+input,select,button{padding:8px 10px;font-size:14px;border-radius:6px;border:1px solid #c5cbd8}
+button{background:#1f3a8a;color:#fff;border:none;cursor:pointer}
+button.alt{background:#64748b}
+button.red{background:#b91c1c}
+button.green{background:#15803d}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;align-items:center}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #e5e8ef}
+.tag{padding:2px 8px;border-radius:10px;font-size:12px;background:#e2e8f0}
+.pri{background:#fde68a}
+.open{background:#bbf7d0}
+.closed{background:#fecaca}
+.big{font-size:26px;font-weight:700}
+.counters{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.counter{border:1px solid #e5e8ef;border-radius:8px;padding:10px}
+#msg{color:#b91c1c;font-size:14px;min-height:18px}
+#banner{padding:14px;border-radius:8px;font-size:18px;font-weight:600}
+.b-turn{background:#bbf7d0;color:#14532d}
+.b-near{background:#fef3c7;color:#78350f}
+.chart{display:flex;align-items:flex-end;gap:3px;height:120px;border-bottom:1px solid #cbd5e1}
+.bar{flex:1;background:#3b6fe0;border-radius:3px 3px 0 0;min-height:2px;position:relative}
+.bar.peak{background:#dc2626}
+.hours{display:flex;gap:3px;font-size:10px;color:#64748b}
+.hours span{flex:1;text-align:center}
+.hide{display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>QueueSmart</h1>
+  <div><a href="/display.html" target="_blank">Open display board</a><span id="userbar"></span></div>
+</header>
+<main>
+  <div class="card full" id="authCard">
+    <h2>Login / Register</h2>
+    <div class="row">
+      <input id="name" placeholder="Name (register only)">
+      <input id="email" placeholder="Email">
+      <input id="password" type="password" placeholder="Password">
+      <button onclick="login()">Login</button>
+      <button class="alt" onclick="register()">Register</button>
+    </div>
+    <small>Demo: admin@queue.com / admin123 &nbsp;|&nbsp; staff1@queue.com / staff123 &nbsp;|&nbsp; or register as a citizen</small>
+  </div>
+  <div class="card full hide" id="bannerCard"><div id="banner"></div></div>
+  <div class="card full"><div id="msg"></div></div>
+
+  <div class="card full">
+    <h2>Counters (live)</h2>
+    <div class="counters" id="counters"></div>
+    <p>Avg service time: <b id="avg">-</b> min &nbsp;|&nbsp; Open counters: <b id="openc">-</b> &nbsp;|&nbsp; Waiting: <b id="wcount">-</b> &nbsp;|&nbsp; Auto allocation: <b id="autoState">-</b></p>
+  </div>
+
+  <div class="card" id="citizenCard">
+    <h2>Get a token</h2>
+    <div class="row">
+      <select id="service">
+        <option>Certificates</option><option>Tax</option><option>Licence</option><option>Enquiry</option>
+      </select>
+      <select id="category">
+        <option value="normal">Normal</option><option value="senior">Senior citizen</option><option value="disabled">Disabled</option>
+      </select>
+      <button onclick="getToken()">Get token</button>
+    </div>
+    <h2>My tokens</h2>
+    <table><thead><tr><th>Token</th><th>Service</th><th>Status</th><th>Position</th><th>Est. wait</th></tr></thead><tbody id="mine"></tbody></table>
+  </div>
+
+  <div class="card" id="staffCard">
+    <h2>Counter control</h2>
+    <p>Next in line: <b id="nextTok">-</b></p>
+    <div id="controls"></div>
+  </div>
+
+  <div class="card" id="adminCard">
+    <h2>Smart counter allocation</h2>
+    <p id="suggest">-</p>
+    <div class="row">
+      <button class="alt" onclick="loadSuggest()">Refresh</button>
+      <button onclick="applyAlloc()">Apply now</button>
+      <button id="autoBtn" class="green" onclick="toggleAuto()">Turn auto mode ON</button>
+    </div>
+    <h2>Rush-hour simulator</h2>
+    <div class="row">
+      <button onclick="simulate(10)">Add 10 tokens</button>
+      <button onclick="simulate(25)">Add 25 tokens</button>
+      <button class="red" onclick="clearSim()">Clear simulated</button>
+    </div>
+  </div>
+
+  <div class="card full" id="analyticsCard">
+    <h2>Analytics</h2>
+    <p id="astats">-</p>
+    <b>Tokens by hour of day</b> <small>(red = peak hour)</small>
+    <div class="chart" id="hourChart"></div>
+    <div class="hours" id="hourLabels"></div>
+    <br>
+    <table><thead><tr><th>Service</th><th>Tokens</th><th>Served</th><th>Avg service (min)</th><th>Avg wait (min)</th></tr></thead><tbody id="svcTable"></tbody></table>
+    <p id="ctrStats"></p>
+  </div>
+
+  <div class="card full">
+    <h2>Waiting queue (fair priority with aging)</h2>
+    <table><thead><tr><th>#</th><th>Token</th><th>Service</th><th>Category</th><th>Est. wait</th></tr></thead><tbody id="queue"></tbody></table>
+  </div>
+</main>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+let token = localStorage.getItem('qs_token');
+let user = JSON.parse(localStorage.getItem('qs_user') || 'null');
+let snap = { waiting: [], counters: [] };
+let prevStatus = {};
+let analyticsTimer = null;
+
+const $ = (id) => document.getElementById(id);
+const msg = (t) => ($('msg').textContent = t || '');
+
+async function api(path, method = 'GET', body) {
+  const res = await fetch('/api' + path, {
+    method,
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (token || '') },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { msg(data.error || 'Error'); throw new Error(data.error); }
+  msg('');
+  return data;
+}
+
+function saveSession(d) {
+  token = d.token; user = d.user;
+  localStorage.setItem('qs_token', token);
+  localStorage.setItem('qs_user', JSON.stringify(user));
+  refreshUI();
+}
+async function login() { try { saveSession(await api('/auth/login', 'POST', { email: $('email').value, password: $('password').value })); } catch {} }
+async function register() { try { saveSession(await api('/auth/register', 'POST', { name: $('name').value, email: $('email').value, password: $('password').value })); } catch {} }
+function logout() { localStorage.clear(); token = null; user = null; prevStatus = {}; refreshUI(); }
+
+function beep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator();
+    o.connect(ctx.destination);
+    o.frequency.value = 880;
+    o.start();
+    setTimeout(() => { o.stop(); ctx.close(); }, 400);
+  } catch {}
+}
+
+function showBanner(text, cls) {
+  $('bannerCard').classList.toggle('hide', !text);
+  $('banner').textContent = text || '';
+  $('banner').className = cls || '';
+}
+
+async function getToken() {
+  try { await api('/tokens', 'POST', { service: $('service').value, category: $('category').value }); loadMine(); } catch {}
+}
+
+async function loadMine() {
+  if (!user || user.role !== 'citizen') return;
+  let rows;
+  try { rows = await api('/tokens/my'); } catch { return; }
+  $('mine').innerHTML = rows.map(t => `<tr><td><b>${t.number}</b></td><td>${t.service}</td><td>${t.status}${t.counter && t.status === 'serving' ? ' @ ' + t.counter : ''}</td><td>${t.position ?? '-'}</td><td>${t.etaMin != null ? t.etaMin + ' min' : '-'}</td></tr>`).join('');
+  const serving = rows.find(t => t.status === 'serving');
+  const waiting = rows.find(t => t.status === 'waiting');
+  if (serving) {
+    if (prevStatus[serving.id] === 'waiting') beep();
+    showBanner(`Your turn! Token ${serving.number}, go to ${serving.counter}`, 'b-turn');
+    document.title = 'YOUR TURN - QueueSmart';
+  } else if (waiting && waiting.position <= 2) {
+    if (!(prevStatus[waiting.id] === 'waiting' && prevStatus.near === waiting.id)) beep();
+    prevStatus.near = waiting.id;
+    showBanner(`Almost your turn: token ${waiting.number} is at position ${waiting.position}`, 'b-near');
+    document.title = 'Almost your turn - QueueSmart';
+  } else {
+    showBanner('');
+    document.title = 'QueueSmart';
+  }
+  rows.forEach(t => (prevStatus[t.id] = t.status));
+}
+
+async function act(id, action) { try { await api(`/counters/${id}/${action}`, 'POST'); } catch {} }
+
+async function loadSuggest() {
+  try {
+    const s = await api('/allocation/suggest');
+    $('suggest').innerHTML = `Waiting: <b>${s.waiting}</b> | Work in queue: <b>${s.workMin} min</b> | Target wait: <b>${s.targetWaitMin} min</b><br>Open: <b>${s.open}</b> | Recommended open counters: <b>${s.recommended}</b>`;
+    $('autoBtn').textContent = s.autoMode ? 'Turn auto mode OFF' : 'Turn auto mode ON';
+    $('autoBtn').className = s.autoMode ? 'red' : 'green';
+  } catch {}
+}
+async function applyAlloc() { try { await api('/allocation/apply', 'POST'); loadSuggest(); } catch {} }
+async function toggleAuto() { try { await api('/allocation/auto', 'POST', { enabled: !snap.autoMode }); loadSuggest(); } catch {} }
+async function simulate(n) { try { await api('/simulate', 'POST', { count: n }); } catch {} }
+async function clearSim() { try { await api('/simulate/clear', 'POST'); } catch {} }
+
+async function loadAnalytics() {
+  if (!user || user.role !== 'admin') return;
+  try {
+    const a = await api('/analytics');
+    const max = Math.max(1, ...a.hourly);
+    $('hourChart').innerHTML = a.hourly.map((v, h) => `<div class="bar ${h === a.busiestHour ? 'peak' : ''}" style="height:${(v / max) * 100}%" title="${h}:00 - ${v} tokens"></div>`).join('');
+    $('hourLabels').innerHTML = a.hourly.map((v, h) => `<span>${h}</span>`).join('');
+    $('astats').innerHTML = `Total tokens: <b>${a.total}</b> | Avg wait: <b>${a.avgWaitMin} min</b> | Busiest hour: <b>${a.busiestHour == null ? '-' : a.busiestHour + ':00'}</b> | Normal ${a.categories.normal}, Senior ${a.categories.senior}, Disabled ${a.categories.disabled}`;
+    $('svcTable').innerHTML = a.services.map(s => `<tr><td>${s.service}</td><td>${s.count}</td><td>${s.served}</td><td>${s.avgServiceMin}</td><td>${s.avgWaitMin}</td></tr>`).join('') || '<tr><td colspan="5">No data yet</td></tr>';
+    $('ctrStats').innerHTML = 'Served per counter: ' + a.counters.map(c => `<b>${c.name}</b> ${c.served}`).join(' | ');
+  } catch {}
+}
+
+function render() {
+  $('avg').textContent = snap.avgServiceMin;
+  $('openc').textContent = snap.openCounters;
+  $('wcount').textContent = snap.waiting.length;
+  $('autoState').textContent = snap.autoMode ? 'ON' : 'OFF';
+
+  $('counters').innerHTML = snap.counters.map(c => `
+    <div class="counter">
+      <b>${c.name}</b> <span class="tag ${c.status}">${c.status}</span>
+      <div class="big">${c.serving || '-'}</div>
+      <small>${c.staff || ''}</small>
+      ${user && user.role === 'admin' ? `<div><button class="alt" onclick="act(${c.id},'toggle')">Toggle</button></div>` : ''}
+    </div>`).join('');
+
+  $('queue').innerHTML = snap.waiting.map(t => `
+    <tr><td>${t.position}</td><td><b>${t.number}</b></td><td>${t.service}</td>
+    <td><span class="tag ${t.priority ? 'pri' : ''}">${t.category}</span></td><td>${t.etaMin} min</td></tr>`).join('') || '<tr><td colspan="5">Queue is empty</td></tr>';
+
+  if (user && (user.role === 'staff' || user.role === 'admin')) {
+    $('nextTok').textContent = snap.waiting.length ? snap.waiting[0].number + ' (' + snap.waiting[0].service + ')' : 'nobody waiting';
+    const mine = user.role === 'admin' ? snap.counters : snap.counters.filter(c => c.staff_id === user.id);
+    $('controls').innerHTML = mine.map(c => `
+      <div class="row"><b>${c.name}</b> (${c.serving || 'idle'})
+      <button onclick="act(${c.id},'call-next')">Call next</button>
+      <button class="green" onclick="act(${c.id},'complete')">Complete</button>
+      <button class="red" onclick="act(${c.id},'skip')">Skip</button></div>`).join('') || 'No counter assigned';
+  }
+  loadMine();
+}
+
+function refreshUI() {
+  const role = user && user.role;
+  $('authCard').classList.toggle('hide', !!user);
+  $('citizenCard').classList.toggle('hide', role !== 'citizen');
+  $('staffCard').classList.toggle('hide', role !== 'staff' && role !== 'admin');
+  $('adminCard').classList.toggle('hide', role !== 'admin');
+  $('analyticsCard').classList.toggle('hide', role !== 'admin');
+  $('userbar').innerHTML = user ? `${user.name} (${user.role}) <button class="alt" onclick="logout()">Logout</button>` : '';
+  if (!user) showBanner('');
+  if (role === 'admin') { loadSuggest(); loadAnalytics(); }
+  render();
+}
+
+io().on('queue:update', (s) => {
+  snap = s;
+  render();
+  if (user && user.role === 'admin') {
+    loadSuggest();
+    clearTimeout(analyticsTimer);
+    analyticsTimer = setTimeout(loadAnalytics, 500);
+  }
+});
+refreshUI();
+</script>
+</body>
+</html>
